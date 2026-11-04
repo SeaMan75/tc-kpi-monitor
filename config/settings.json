@@ -1,0 +1,27 @@
+{
+  "docker": {
+    "compose_file": "config/docker-compose.yml"
+  },
+  "kafka": {
+    "broker": "localhost:9092",
+    "topic": "raw_telemetry"
+  },
+  "clickhouse": {
+    "host": "localhost",
+    "port": 8123,
+    "user": "app_user",
+    "password": "app_secret",
+    "database": "kpi_db"
+  },
+  "telegram": {
+    "token": "YOUR_TELEGRAM_BOT_TOKEN",
+    "chat_id": "YOUR_CHAT_ID"
+  },
+  "processing": {
+    "window_size": 10
+  },
+  "alerting": {
+    "cpu_threshold": 85.0,
+    "errors_threshold": 5
+  }
+}
