@@ -154,7 +154,7 @@ class DockerManager:
         check_user = "SELECT count() FROM system.users WHERE name = 'app_user'"
         create_db = f"CREATE DATABASE IF NOT EXISTS {db_name}"
         create_user = "CREATE USER IF NOT EXISTS 'app_user' IDENTIFIED WITH plaintext_password BY 'app_secret'"
-        grant_perms = f"GRANT INSERT, SELECT, CREATE TABLE ON {db_name}.* TO 'app_user'"
+        grant_perms = f"GRANT INSERT, SELECT, CREATE TABLE, DROP TABLE ON {db_name}.* TO 'app_user'"
         
         try:
             r = requests.post("http://localhost:8123/", data=check_user.encode(), auth=('admin', 'secret'))
@@ -169,26 +169,31 @@ class DockerManager:
             print(f"  Ошибка настройки пользователя: {e}")
             raise
 
-        # 2. Создаем таблицы (если их нет)
-        # ВНИМАНИЕ: Если в твоем stream_processor.py другие названия колонок, поправь их здесь!
+        # 2. Создаем таблицу с ПРАВИЛЬНЫМИ колонками из stream_processor.py
+        # Сначала удаляем старую, если она была создана с ошибкой
+        drop_table = f"DROP TABLE IF EXISTS {db_name}.metrics_aggregated"
+        
         create_table_metrics = f"""
-        CREATE TABLE IF NOT EXISTS {db_name}.metrics_aggregated (
+        CREATE TABLE {db_name}.metrics_aggregated (
             timestamp DateTime,
             source String,
             avg_cpu Float32,
             total_errors UInt32,
-            record_count UInt32
+            event_count UInt32
         ) ENGINE = MergeTree()
         ORDER BY (timestamp, source)
         """
         
         try:
-            print(f"  Создаю таблицу {db_name}.metrics_aggregated...")
-            r = requests.post("http://localhost:8123/", data=create_table_metrics.encode(), auth=('app_user', 'app_secret'))
+            print(f"  Обновляю структуру таблицы {db_name}.metrics_aggregated...")
+            # Используем admin для гарантированного выполнения DDL-команд
+            requests.post("http://localhost:8123/", data=drop_table.encode(), auth=('admin', 'secret'))
+            r = requests.post("http://localhost:8123/", data=create_table_metrics.encode(), auth=('admin', 'secret'))
+            
             if r.status_code == 200:
-                print("  ✅ Таблица успешно создана или уже существует")
+                print("  ✅ Таблица успешно создана с правильными колонками")
             else:
-                print(f"  ⚠️ Ответ ClickHouse при создании таблицы: {r.text}")
+                print(f"  ⚠️ Ответ ClickHouse: {r.text}")
         except Exception as e:
             print(f"  ❌ Ошибка создания таблицы: {e}")
             raise
