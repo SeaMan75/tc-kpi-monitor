@@ -1,122 +1,160 @@
-import time
-import signal
 import sys
+import subprocess
+import signal
+import argparse
+
+# ==============================================================================
+# АВТОМАТИЧЕСКАЯ УСТАНОВКА ЗАВИСИМОСТЕЙ (Self-contained deployment)
+# ==============================================================================
+REQUIRED_PACKAGES = [
+    "docker",
+    "requests",
+    "confluent-kafka",  # Если у вас используется kafka-python, замените на "kafka-python"
+    "clickhouse-connect",
+    "customtkinter",
+    "matplotlib"
+]
+
+def ensure_dependencies():
+    print("🔍 Проверка зависимостей...")
+    missing = []
+    for pkg in REQUIRED_PACKAGES:
+        try:
+            # Пытаемся импортировать пакет (заменяем дефис на подчеркивание для корректной проверки)
+            __import__(pkg.replace("-", "_"))
+        except ImportError:
+            missing.append(pkg)
+    
+    if missing:
+        print(f"⚠️ Обнаружены отсутствующие пакеты: {', '.join(missing)}")
+        print("⏳ Устанавливаю автоматически через pip...")
+        try:
+            # Используем sys.executable, чтобы гарантировать установку в текущий venv/интерпретатор
+            subprocess.check_call([sys.executable, "-m", "pip", "install", *missing])
+            print("✅ Все зависимости успешно установлены!\n")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Критическая ошибка установки пакетов: {e}")
+            print("Пожалуйста, установите их вручную: pip install " + " ".join(missing))
+            sys.exit(1)
+    else:
+        print("✅ Все зависимости уже установлены.\n")
+
+# Запускаем проверку ДО импорта остальных модулей проекта
+ensure_dependencies()
+
+# ==============================================================================
+# ИМПОРТЫ ПРОЕКТА (теперь гарантированно успешны)
+# ==============================================================================
 from core.docker_manager import DockerManager
 from core.config_manager import ConfigManager
 from core.stream_processor import StreamProcessor
 from services.alert_manager import AlertManager
 from services.data_generator import DataGenerator
 
-class KPIApplication:
-    def __init__(self, config_path="config/settings.json"):
-        self.config = ConfigManager(config_path)
-        self.docker = DockerManager()
-        
-        # ИСПРАВЛЕННЫЙ БЛОК: параметры теперь точно совпадают с AlertManager
-        self.alert_manager = AlertManager(
-            telegram_token=self.config.get('telegram.token', ''),
-            chat_id=self.config.get('telegram.chat_id', ''),
-            cpu_threshold=self.config.get('alerting.cpu_threshold', 85.0),
-            errors_threshold=self.config.get('alerting.errors_threshold', 5)
-        )
-        
-        self.processor = None
-        self.generator = None
-        
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
+# ==============================================================================
+# КОНСОЛЬНЫЙ РЕЖИМ (Полная, несокращенная версия)
+# ==============================================================================
+def run_console_mode():
+    print("=" * 60)
+    print("Запуск системы мониторинга KPI (Консольный режим)")
+    print("=" * 60)
     
-    def _signal_handler(self, signum, frame):
-        print("\nПолучен сигнал завершения...")
-        self.stop()
+    config = ConfigManager("config/settings.json")
+    docker = DockerManager()
+    
+    alert_manager = AlertManager(
+        telegram_token=config.get('telegram.token', ''),
+        chat_id=config.get('telegram.chat_id', ''),
+        cpu_threshold=config.get('alerting.cpu_threshold', 85.0),
+        errors_threshold=config.get('alerting.errors_threshold', 5)
+    )
+    
+    # Обработчики сигналов для корректного завершения по Ctrl+C
+    def signal_handler(sig, frame):
+        print("\nПолучен сигнал завершения. Остановка системы...")
+        if generator: generator.stop()
+        if processor: processor.stop()
+        docker.stop_stack()
+        print("Система остановлена.")
         sys.exit(0)
-    
-    def start(self):
-        print("=" * 60)
-        print("Запуск системы мониторинга KPI")
-        print("=" * 60)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    try:
+        # 1. Подъем инфраструктуры
+        docker.start_stack()
         
-        self.docker.start_stack()
-        
-        if not self.docker.wait_for_healthy('redpanda', timeout=20):
+        if not docker.wait_for_healthy('redpanda', timeout=20):
             raise RuntimeError("Redpanda не запустился")
         
-        if not self.docker.wait_for_clickhouse(timeout=60):
-            print("Перезапускаю ClickHouse...")
-            try:
-                containers = self.docker.client.containers.list(filters={'name': 'clickhouse'})
-                if containers:
-                    containers[0].restart()
-                else:
-                    print("ClickHouse не найден, запускаю заново...")
-                    self.docker.start_stack()
-            except Exception as e:
-                print(f"Ошибка перезапуска ClickHouse: {e}")
-                raise RuntimeError("ClickHouse не запустился")
-            
-            if not self.docker.wait_for_clickhouse(timeout=60):
-                raise RuntimeError("ClickHouse не ответил после перезапуска")
+        if not docker.wait_for_clickhouse(timeout=60):
+            raise RuntimeError("ClickHouse не ответил")
         
-        # Получаем имя базы из конфига (по умолчанию 'kpi_db')
-        db_name = self.config.get('clickhouse.database', 'kpi_db')
+        db_name = config.get('clickhouse.database', 'kpi_db')
+        docker.ensure_database_and_tables(db_name=db_name)
         
-        # Получаем имя базы из конфига (по умолчанию 'kpi_db')
-        db_name = self.config.get('clickhouse.database', 'kpi_db')
-        
-        # Передаем его в метод инициализации (теперь он создает и таблицы)
-        self.docker.ensure_database_and_tables(db_name=db_name)
-        
-        self.generator = DataGenerator(
-            kafka_broker=self.config.get('kafka.broker'),
-            topic=self.config.get('kafka.topic')
+        # 2. Запуск генератора данных
+        generator = DataGenerator(
+            kafka_broker=config.get('kafka.broker'),
+            topic=config.get('kafka.topic')
         )
-        self.generator.start()
+        generator.start()
         
-        self.processor = StreamProcessor(
-            kafka_broker=self.config.get('kafka.broker'),
-            clickhouse_host=self.config.get('clickhouse.host'),
-            ch_user=self.config.get('clickhouse.user'),
-            ch_password=self.config.get('clickhouse.password'),
-            ch_database=self.config.get('clickhouse.database'),
-            window_size=self.config.get('processing.window_size', 60)
+        # 3. Запуск процессора потока
+        processor = StreamProcessor(
+            kafka_broker=config.get('kafka.broker'),
+            clickhouse_host=config.get('clickhouse.host'),
+            ch_user=config.get('clickhouse.user'),
+            ch_password=config.get('clickhouse.password'),
+            ch_database=config.get('clickhouse.database'),
+            window_size=config.get('processing.window_size', 60)
         )
         
         print("\n" + "=" * 60)
         print("СИСТЕМА ПОЛНОСТЬЮ ГОТОВА")
         print("=" * 60)
-        print("Grafana: http://localhost:3000 (admin/admin)")
-        print("Redpanda Console: http://localhost:8080")
-        print("ClickHouse: http://localhost:8123")
-        print("=" * 60)
-        print("\nДля остановки нажмите Ctrl+C\n")
-    
-    def run(self):
-        self.processor.process(callback=self.alert_manager.check_and_alert)
-    
-    def stop(self):
-        print("\n" + "=" * 60)
-        print("Остановка системы...")
-        print("=" * 60)
+        print("Для остановки нажмите Ctrl+C\n")
         
-        if self.generator:
-            self.generator.stop()
+        # 4. Основной цикл обработки
+        processor.process(callback=alert_manager.check_and_alert)
         
-        if self.processor:
-            self.processor.stop()
-        
-        self.docker.stop_stack()
-        
-        print("\nСистема остановлена")
-        print("=" * 60)
-
-if __name__ == "__main__":
-    app = KPIApplication()
-    try:
-        app.start()
-        app.run()
-    except KeyboardInterrupt:
-        app.stop()
     except Exception as e:
-        print(f"\nКритическая ошибка: {e}")
-        app.stop()
+        print(f"\n❌ Критическая ошибка: {e}")
+        if 'generator' in locals(): generator.stop()
+        if 'processor' in locals(): processor.stop()
+        docker.stop_stack()
         sys.exit(1)
+
+# ==============================================================================
+# GUI РЕЖИМ
+# ==============================================================================
+def run_gui_mode():
+    print("🚀 Запуск графического интерфейса...")
+    from ui.main_window import KPIMonitorGUI
+    
+    config = ConfigManager("config/settings.json")
+    docker = DockerManager()
+    
+    alert_manager = AlertManager(
+        telegram_token=config.get('telegram.token', ''),
+        chat_id=config.get('telegram.chat_id', ''),
+        cpu_threshold=config.get('alerting.cpu_threshold', 85.0),
+        errors_threshold=config.get('alerting.errors_threshold', 5)
+    )
+    
+    gui = KPIMonitorGUI(docker_manager=docker, alert_manager=alert_manager, config=config)
+    gui.run()
+
+# ==============================================================================
+# ТОЧКА ВХОДА
+# ==============================================================================
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Система мониторинга KPI в реальном времени")
+    parser.add_argument("--gui", action="store_true", help="Запустить графический интерфейс (CustomTkinter)")
+    args = parser.parse_args()
+    
+    if args.gui:
+        run_gui_mode()
+    else:
+        run_console_mode()
