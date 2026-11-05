@@ -74,13 +74,25 @@ class DockerManager:
         print("Инфраструктура запущена\n")
     
     def _start_container(self, name, image, ports=None, command=None, environment=None):
+        # 1. Проверяем, существует ли контейнер с таким именем
         try:
             existing = self.client.containers.get(name)
-            print(f"  {name} уже запущен")
-            return
+            
+            # Если он УЖЕ работает, просто добавляем в список и выходим (экономим время)
+            if existing.status == 'running':
+                print(f"  ⚡ {name} уже работает, пропускаем")
+                self.containers[name] = existing
+                return
+            
+            # Если он есть, но остановлен (Exited/Created) — безжалостно удаляем его
+            print(f"  🧹 {name} найден, но остановлен (статус: {existing.status}). Удаляю и пересоздаю...")
+            existing.remove(force=True)
+            
         except NotFound:
+            # Контейнера вообще нет — это нормальная ситуация, создаем с нуля
             pass
         
+        # 2. Собираем параметры для запуска нового чистого контейнера
         run_params = {
             'image': image,
             'name': name,
@@ -89,19 +101,19 @@ class DockerManager:
         
         if ports:
             run_params['ports'] = ports
-        
         if command:
             run_params['command'] = command
-        
         if environment:
             run_params['environment'] = environment
         
+        # 3. Запускаем
         try:
             container = self.client.containers.run(**run_params)
             self.containers[name] = container
-            print(f"  {name} запущен")
+            print(f"  ✅ {name} успешно запущен")
         except Exception as e:
-            print(f"  Ошибка запуска {name}: {e}")
+            print(f"  ❌ Ошибка запуска {name}: {e}")
+            raise
     
     def stop_stack(self):
         print("Остановка инфраструктуры...")
