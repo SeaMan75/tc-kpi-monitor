@@ -133,7 +133,7 @@ class KPIMonitorGUI:
         self.ax.tick_params(colors='white')
         self.ax.xaxis.label.set_color('white')
         self.ax.yaxis.label.set_color('white')
-        self.ax.grid(True, color='gray40')
+        self.ax.grid(True, color='#666666')
         
         self.canvas = FigureCanvasTkAgg(self.fig, master=chart_frame)
         self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
