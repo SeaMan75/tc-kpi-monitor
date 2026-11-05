@@ -1,3 +1,5 @@
+from core.stream_processor import StreamProcessor
+from services.data_generator import DataGenerator
 import customtkinter as ctk
 from tkinter import ttk
 import matplotlib.pyplot as plt
@@ -258,22 +260,64 @@ class KPIMonitorGUI:
         threading.Thread(target=self._update_infra_status, daemon=True).start()
 
     def _run_backend(self):
+        """Запускает всю серверную часть в фоновом потоке"""
         try:
+            self.root.after(0, lambda: self.alert_log.insert("end", "[INFO] Запуск инфраструктуры Docker...\n"))
             self.docker_manager.start_stack()
+            
+            self.root.after(0, lambda: self.alert_log.insert("end", "[INFO] Ожидание готовности Redpanda...\n"))
             self.docker_manager.wait_for_healthy('redpanda', timeout=20)
+            
+            self.root.after(0, lambda: self.alert_log.insert("end", "[INFO] Ожидание готовности ClickHouse...\n"))
             self.docker_manager.wait_for_clickhouse(timeout=60)
-            self.docker_manager.ensure_database_and_tables()
-            self.root.after(0, lambda: self.alert_log.insert("end", "[SUCCESS] Система готова\n"))
+            
+            db_name = self.config.get('clickhouse.database', 'kpi_db')
+            self.docker_manager.ensure_database_and_tables(db_name=db_name)
+            
+            self.root.after(0, lambda: self.alert_log.insert("end", "[INFO] Запуск генератора данных и процессора потока...\n"))
+            
+            # === ВОТ ЭТОГО НЕ ХВАТАЛО! Запускаем реальные процессы ===
+            self.generator = DataGenerator(
+                kafka_broker=self.config.get('kafka.broker'),
+                topic=self.config.get('kafka.topic')
+            )
+            self.generator.start()
+            
+            self.processor = StreamProcessor(
+                kafka_broker=self.config.get('kafka.broker'),
+                clickhouse_host=self.config.get('clickhouse.host'),
+                ch_user=self.config.get('clickhouse.user'),
+                ch_password=self.config.get('clickhouse.password'),
+                ch_database=self.config.get('clickhouse.database'),
+                window_size=self.config.get('processing.window_size', 60)
+            )
+            
+            # Запускаем процессор в отдельном потоке, чтобы он не блокировал обновление GUI
+            threading.Thread(
+                target=self.processor.process, 
+                kwargs={'callback': self.alert_manager.check_and_alert},
+                daemon=True
+            ).start()
+            
+            self.root.after(0, lambda: self.alert_log.insert("end", "[SUCCESS] Система полностью готова и обрабатывает данные!\n"))
+            
         except Exception as e:
             self.root.after(0, lambda: self.alert_log.insert("end", f"[ERROR] {e}\n"))
-
     def _stop_system(self):
         self.running = False
         self.alert_log.insert("end", "[INFO] Остановка системы...\n")
+        
+        # Корректно останавливаем генератор и процессор
+        if hasattr(self, 'generator'):
+            self.generator.stop()
+        if hasattr(self, 'processor'):
+            self.processor.stop()
+            
         self.docker_manager.stop_stack()
         self.btn_start.configure(state="normal")
         self.btn_stop.configure(state="disabled")
-
+        self.alert_log.insert("end", "[INFO] Система полностью остановлена.\n")
+        
     def _apply_settings(self):
         """Блок управления и настройки: обновление порогов на лету"""
         try:
