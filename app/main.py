@@ -131,6 +131,7 @@ def run_console_mode():
 # ==============================================================================
 def run_gui_mode():
     print("🚀 Запуск графического интерфейса...")
+    from ui.auth import LoginWindow
     from ui.main_window import KPIMonitorGUI
     
     config = ConfigManager("config/settings.json")
@@ -143,8 +144,18 @@ def run_gui_mode():
         errors_threshold=config.get('alerting.errors_threshold', 5)
     )
     
-    gui = KPIMonitorGUI(docker_manager=docker, alert_manager=alert_manager, config=config)
-    gui.run()
+    # Сначала показываем окно авторизации
+    def on_login_success(user_info):
+        gui = KPIMonitorGUI(
+            docker_manager=docker, 
+            alert_manager=alert_manager, 
+            config=config,
+            user_info=user_info
+        )
+        gui.run()
+    
+    login = LoginWindow(on_login_success)
+    login.run()
 
 # ==============================================================================
 # ТОЧКА ВХОДА
