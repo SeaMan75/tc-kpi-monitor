@@ -68,9 +68,11 @@ class KPIMonitorGUI:
             SettingsTab(self.tabview.tab("⚙️ Настройки")).pack(fill="both", expand=True)
     
     def _toggle_theme(self):
-        new_theme = "light" if self.theme_var.get() == "dark" else "dark"
+        current = ctk.get_appearance_mode()
+        new_theme = "light" if current == "dark" else "dark"
         ctk.set_appearance_mode(new_theme)
         self.theme_var.set(new_theme)
+        self.root.update_idletasks()  # Форсируем обновление
         
     def _logout(self):
         if messagebox.askyesno("Выход", "Завершить сеанс?"):

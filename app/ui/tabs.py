@@ -94,7 +94,7 @@ class DashboardTab(ctk.CTkFrame):
         
         canvas = FigureCanvasTkAgg(fig, master=chart)
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
-        
+
 # ==============================================================================
 # ВКЛАДКА 2: АНАЛИТИКА
 # ==============================================================================
@@ -202,6 +202,80 @@ class ZonesTab(ctk.CTkFrame):
             tree.insert("", "end", values=row)
         
         tree.pack(fill="both", expand=True, padx=10, pady=10)
+        tree.bind("<Double-1>", lambda e: self._show_zone_details())
+        ctk.CTkButton(self, text="📋 Показать детали выбранной зоны", command=self._show_zone_details).pack(pady=10)
+
+        def _show_zone_details(self):
+            selected = self.tree.selection()
+            if not selected:
+                messagebox.showinfo("Информация", "Дважды кликните на строку таблицы или нажмите кнопку выше")
+                return
+            
+            item = self.tree.item(selected[0])
+            zone_name, visitors, load, status, last_event = item['values']
+            
+            # Создаем модальное окно с деталями
+            detail_window = ctk.CTkToplevel(self)
+            detail_window.title(f"Детали зоны: {zone_name}")
+            detail_window.geometry("600x500")
+            detail_window.transient(self)
+            detail_window.grab_set()
+            
+            # Заголовок
+            ctk.CTkLabel(detail_window, text=f"📍 {zone_name}", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
+            
+            # Информация
+            info_frame = ctk.CTkFrame(detail_window)
+            info_frame.pack(fill="x", padx=20, pady=10)
+            
+            info_text = f"""
+                Посетителей за последний час: {visitors}
+                Текущая загрузка: {load}
+                Статус: {status}
+                Последнее событие: {last_event}
+
+                Рекомендации:
+                """
+            if "Критично" in str(status):
+                info_text += "⚠️ Немедленно направить дополнительный персонал!\n"
+            elif "Высокая" in str(status):
+                info_text += "⚡ Подготовить резервные кассы/выходы\n"
+            else:
+                info_text += "✅ Работает в штатном режиме\n"
+            
+            ctk.CTkTextbox(info_frame, height=150).insert("1.0", info_text)
+            ctk.CTkTextbox(info_frame, height=150).pack(fill="x", padx=10, pady=10)
+            
+            # График посещаемости по часам
+            chart_frame = ctk.CTkFrame(detail_window)
+            chart_frame.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            ctk.CTkLabel(chart_frame, text="Посещаемость по часам (сегодня)", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=5)
+            
+            fig = Figure(figsize=(6, 3), dpi=80)
+            fig.patch.set_facecolor('#2b2b2b')
+            ax = fig.add_subplot(111)
+            ax.set_facecolor('#2b2b2b')
+            ax.tick_params(colors='white')
+            ax.grid(True, color='#666666')
+            
+            hours = [f"{h}:00" for h in range(10, 20)]
+            visitors_data = [random.randint(50, 200) for _ in hours]
+            ax.bar(hours, visitors_data, color='#1f77b4')
+            ax.set_ylabel("Посетителей", color='white')
+            ax.set_title(zone_name, color='white')
+            
+            canvas = FigureCanvasTkAgg(fig, master=chart_frame)
+            canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # Кнопки действий
+            btn_frame = ctk.CTkFrame(detail_window)
+            btn_frame.pack(fill="x", padx=20, pady=10)
+            
+            ctk.CTkButton(btn_frame, text="📞 Связаться с персоналом зоны", command=lambda: messagebox.showinfo("Уведомление", f"Запрос отправлен менеджеру зоны {zone_name}")).pack(side="left", expand=True, padx=5)
+            ctk.CTkButton(btn_frame, text="📊 Полный отчёт", command=lambda: messagebox.showinfo("Отчёт", f"Отчёт по зоне {zone_name} формируется...")).pack(side="left", expand=True, padx=5)
+            ctk.CTkButton(btn_frame, text="❌ Закрыть", command=detail_window.destroy, fg_color="gray").pack(side="left", expand=True, padx=5)
+
 
 # ==============================================================================
 # ВКЛАДКА 4: АЛЕРТЫ
@@ -319,6 +393,12 @@ class InfrastructureTab(ctk.CTkFrame):
 class UsersTab(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent)
+        self.users = [
+            ("admin", "Администратор системы", "Администратор", "2026-11-06 19:25", "🟢 Онлайн"),
+            ("user", "Оператор мониторинга", "Оператор", "2026-11-06 18:10", "⚫ Оффлайн"),
+            ("manager", "Иванов А.П. (директор ТЦ)", "Менеджер", "2026-11-06 14:30", "⚫ Оффлайн"),
+            ("security", "Петров С.В. (безопасность)", "Наблюдатель", "2026-11-06 09:00", "⚫ Оффлайн"),
+        ]
         self._build()
         
     def _build(self):
@@ -326,27 +406,125 @@ class UsersTab(ctk.CTkFrame):
         
         btn_frame = ctk.CTkFrame(self)
         btn_frame.pack(fill="x", padx=10, pady=5)
-        ctk.CTkButton(btn_frame, text="➕ Добавить пользователя", command=lambda: messagebox.showinfo("Создание", "Открыта форма создания пользователя")).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="✏️ Редактировать", command=lambda: messagebox.showinfo("Редактирование", "Выберите пользователя в таблице")).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="🗑 Удалить", fg_color="red", hover_color="darkred", command=lambda: messagebox.showwarning("Удаление", "Функция доступна только супер-администратору")).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="➕ Добавить пользователя", command=self._add_user).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="✏️ Редактировать", command=self._edit_user).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="🗑 Удалить", fg_color="red", hover_color="darkred", command=self._delete_user).pack(side="left", padx=5)
         
         columns = ("Логин", "Имя", "Роль", "Последний вход", "Статус")
-        tree = ttk.Treeview(self, columns=columns, show="headings", height=12)
+        self.tree = ttk.Treeview(self, columns=columns, show="headings", height=12)
         for col in columns:
-            tree.heading(col, text=col)
-            tree.column(col, width=180, anchor="center")
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=180, anchor="center")
         
-        users = [
-            ("admin", "Администратор системы", "Администратор", "2026-11-06 19:25", "🟢 Онлайн"),
-            ("user", "Оператор мониторинга", "Оператор", "2026-11-06 18:10", "⚫ Оффлайн"),
-            ("manager", "Иванов А.П. (директор ТЦ)", "Менеджер", "2026-11-06 14:30", "⚫ Оффлайн"),
-            ("security", "Петров С.В. (безопасность)", "Наблюдатель", "2026-11-06 09:00", "⚫ Оффлайн"),
-        ]
+        self._refresh_table()
+        self.tree.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    def _refresh_table(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for row in self.users:
+            self.tree.insert("", "end", values=row)
+    
+    def _add_user(self):
+        UserForm(self, None, self._on_user_saved)
+    
+    def _edit_user(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Внимание", "Выберите пользователя в таблице")
+            return
+        item = self.tree.item(selected[0])
+        user_data = item['values']
+        UserForm(self, user_data, self._on_user_saved)
+    
+    def _delete_user(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("Внимание", "Выберите пользователя в таблице")
+            return
+        if messagebox.askyesno("Удаление", "Удалить выбранного пользователя?"):
+            item = self.tree.item(selected[0])
+            login = item['values'][0]
+            self.users = [u for u in self.users if u[0] != login]
+            self._refresh_table()
+            messagebox.showinfo("Успех", f"Пользователь {login} удален")
+    
+    def _on_user_saved(self, user_data):
+        # user_data = (login, name, role)
+        login, name, role = user_data
+        # Проверяем, есть ли уже такой логин
+        existing = [u for u in self.users if u[0] == login]
+        if existing:
+            # Обновляем
+            self.users = [
+                (login, name, role, u[3], u[4]) if u[0] == login else u 
+                for u in self.users
+            ]
+        else:
+            # Добавляем
+            self.users.append((login, name, role, "Никогда", "⚫ Оффлайн"))
+        self._refresh_table()
+        messagebox.showinfo("Успех", f"Пользователь {login} сохранен")
+
+
+class UserForm(ctk.CTkToplevel):
+    def __init__(self, parent, user_data, on_save):
+        super().__init__(parent)
+        self.on_save = on_save
+        self.title("Добавить пользователя" if not user_data else "Редактировать пользователя")
+        self.geometry("400x400")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
         
-        for row in users:
-            tree.insert("", "end", values=row)
+        self._build_ui(user_data)
+    
+    def _build_ui(self, user_data):
+        ctk.CTkLabel(self, text=self.title(), font=ctk.CTkFont(size=18, weight="bold")).pack(pady=20)
         
-        tree.pack(fill="both", expand=True, padx=10, pady=10)
+        frame = ctk.CTkFrame(self)
+        frame.pack(padx=20, pady=10, fill="x")
+        
+        ctk.CTkLabel(frame, text="Логин:").pack(anchor="w", padx=10, pady=(10, 5))
+        self.entry_login = ctk.CTkEntry(frame)
+        self.entry_login.pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkLabel(frame, text="Имя:").pack(anchor="w", padx=10, pady=(10, 5))
+        self.entry_name = ctk.CTkEntry(frame)
+        self.entry_name.pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkLabel(frame, text="Роль:").pack(anchor="w", padx=10, pady=(10, 5))
+        self.role_var = ctk.StringVar(value="Оператор")
+        ctk.CTkOptionMenu(frame, values=["Администратор", "Оператор", "Менеджер", "Наблюдатель"], variable=self.role_var).pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkLabel(frame, text="Пароль:").pack(anchor="w", padx=10, pady=(10, 5))
+        self.entry_pass = ctk.CTkEntry(frame, show="*")
+        self.entry_pass.pack(fill="x", padx=10, pady=5)
+        
+        if user_data:
+            self.entry_login.insert(0, user_data[0])
+            self.entry_name.insert(0, user_data[1])
+            self.role_var.set(user_data[2])
+            self.entry_login.configure(state="disabled")  # Логин нельзя менять
+        
+        btn_frame = ctk.CTkFrame(self)
+        btn_frame.pack(fill="x", padx=20, pady=20)
+        ctk.CTkButton(btn_frame, text="💾 Сохранить", command=self._save).pack(side="left", expand=True, padx=5)
+        ctk.CTkButton(btn_frame, text="❌ Отмена", command=self.destroy, fg_color="gray").pack(side="left", expand=True, padx=5)
+    
+    def _save(self):
+        login = self.entry_login.get().strip()
+        name = self.entry_name.get().strip()
+        role = self.role_var.get()
+        password = self.entry_pass.get().strip()
+        
+        if not login or not name or not password:
+            messagebox.showerror("Ошибка", "Заполните все поля")
+            return
+        
+        self.on_save((login, name, role))
+        self.destroy()
+
 
 # ==============================================================================
 # ВКЛАДКА 7: НАСТРОЙКИ СИСТЕМЫ
