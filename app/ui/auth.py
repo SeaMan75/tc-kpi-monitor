@@ -10,6 +10,7 @@ class LoginDialog(ctk.CTkToplevel):
     def __init__(self, parent, on_success):
         super().__init__(parent)
         self.on_success = on_success
+        
         self.title("Вход в систему мониторинга KPI")
         self.geometry("400x380")
         self.resizable(False, False)
@@ -18,11 +19,17 @@ class LoginDialog(ctk.CTkToplevel):
         self.transient(parent)
         self.grab_set()
         
-        # Центрируем окно относительно родителя
+        # === ИСПРАВЛЕННОЕ ЦЕНТРИРОВАНИЕ ПО ЦЕНТРУ ЭКРАНА ===
         self.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - 200
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - 190
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        
+        # Вычисляем координаты для центра экрана
+        x = (screen_width // 2) - (400 // 2)
+        y = (screen_height // 2) - (380 // 2)
+        
         self.geometry(f"400x380+{x}+{y}")
+        # ====================================================
         
         self._build_ui()
         

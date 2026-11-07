@@ -205,76 +205,76 @@ class ZonesTab(ctk.CTkFrame):
         tree.bind("<Double-1>", lambda e: self._show_zone_details())
         ctk.CTkButton(self, text="📋 Показать детали выбранной зоны", command=self._show_zone_details).pack(pady=10)
 
-        def _show_zone_details(self):
-            selected = self.tree.selection()
-            if not selected:
-                messagebox.showinfo("Информация", "Дважды кликните на строку таблицы или нажмите кнопку выше")
-                return
-            
-            item = self.tree.item(selected[0])
-            zone_name, visitors, load, status, last_event = item['values']
-            
-            # Создаем модальное окно с деталями
-            detail_window = ctk.CTkToplevel(self)
-            detail_window.title(f"Детали зоны: {zone_name}")
-            detail_window.geometry("600x500")
-            detail_window.transient(self)
-            detail_window.grab_set()
-            
-            # Заголовок
-            ctk.CTkLabel(detail_window, text=f"📍 {zone_name}", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
-            
-            # Информация
-            info_frame = ctk.CTkFrame(detail_window)
-            info_frame.pack(fill="x", padx=20, pady=10)
-            
-            info_text = f"""
-                Посетителей за последний час: {visitors}
-                Текущая загрузка: {load}
-                Статус: {status}
-                Последнее событие: {last_event}
+    def _show_zone_details(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showinfo("Информация", "Дважды кликните на строку таблицы или нажмите кнопку выше")
+            return
+        
+        item = self.tree.item(selected[0])
+        zone_name, visitors, load, status, last_event = item['values']
+        
+        # Создаем модальное окно с деталями
+        detail_window = ctk.CTkToplevel(self)
+        detail_window.title(f"Детали зоны: {zone_name}")
+        detail_window.geometry("600x500")
+        detail_window.transient(self)
+        detail_window.grab_set()
+        
+        # Заголовок
+        ctk.CTkLabel(detail_window, text=f"📍 {zone_name}", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=20)
+        
+        # Информация
+        info_frame = ctk.CTkFrame(detail_window)
+        info_frame.pack(fill="x", padx=20, pady=10)
+        
+        info_text = f"""
+            Посетителей за последний час: {visitors}
+            Текущая загрузка: {load}
+            Статус: {status}
+            Последнее событие: {last_event}
 
-                Рекомендации:
-                """
-            if "Критично" in str(status):
-                info_text += "⚠️ Немедленно направить дополнительный персонал!\n"
-            elif "Высокая" in str(status):
-                info_text += "⚡ Подготовить резервные кассы/выходы\n"
-            else:
-                info_text += "✅ Работает в штатном режиме\n"
-            
-            ctk.CTkTextbox(info_frame, height=150).insert("1.0", info_text)
-            ctk.CTkTextbox(info_frame, height=150).pack(fill="x", padx=10, pady=10)
-            
-            # График посещаемости по часам
-            chart_frame = ctk.CTkFrame(detail_window)
-            chart_frame.pack(fill="both", expand=True, padx=20, pady=10)
-            
-            ctk.CTkLabel(chart_frame, text="Посещаемость по часам (сегодня)", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=5)
-            
-            fig = Figure(figsize=(6, 3), dpi=80)
-            fig.patch.set_facecolor('#2b2b2b')
-            ax = fig.add_subplot(111)
-            ax.set_facecolor('#2b2b2b')
-            ax.tick_params(colors='white')
-            ax.grid(True, color='#666666')
-            
-            hours = [f"{h}:00" for h in range(10, 20)]
-            visitors_data = [random.randint(50, 200) for _ in hours]
-            ax.bar(hours, visitors_data, color='#1f77b4')
-            ax.set_ylabel("Посетителей", color='white')
-            ax.set_title(zone_name, color='white')
-            
-            canvas = FigureCanvasTkAgg(fig, master=chart_frame)
-            canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
-            
-            # Кнопки действий
-            btn_frame = ctk.CTkFrame(detail_window)
-            btn_frame.pack(fill="x", padx=20, pady=10)
-            
-            ctk.CTkButton(btn_frame, text="📞 Связаться с персоналом зоны", command=lambda: messagebox.showinfo("Уведомление", f"Запрос отправлен менеджеру зоны {zone_name}")).pack(side="left", expand=True, padx=5)
-            ctk.CTkButton(btn_frame, text="📊 Полный отчёт", command=lambda: messagebox.showinfo("Отчёт", f"Отчёт по зоне {zone_name} формируется...")).pack(side="left", expand=True, padx=5)
-            ctk.CTkButton(btn_frame, text="❌ Закрыть", command=detail_window.destroy, fg_color="gray").pack(side="left", expand=True, padx=5)
+            Рекомендации:
+            """
+        if "Критично" in str(status):
+            info_text += "⚠️ Немедленно направить дополнительный персонал!\n"
+        elif "Высокая" in str(status):
+            info_text += "⚡ Подготовить резервные кассы/выходы\n"
+        else:
+            info_text += "✅ Работает в штатном режиме\n"
+        
+        ctk.CTkTextbox(info_frame, height=150).insert("1.0", info_text)
+        ctk.CTkTextbox(info_frame, height=150).pack(fill="x", padx=10, pady=10)
+        
+        # График посещаемости по часам
+        chart_frame = ctk.CTkFrame(detail_window)
+        chart_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        ctk.CTkLabel(chart_frame, text="Посещаемость по часам (сегодня)", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=5)
+        
+        fig = Figure(figsize=(6, 3), dpi=80)
+        fig.patch.set_facecolor('#2b2b2b')
+        ax = fig.add_subplot(111)
+        ax.set_facecolor('#2b2b2b')
+        ax.tick_params(colors='white')
+        ax.grid(True, color='#666666')
+        
+        hours = [f"{h}:00" for h in range(10, 20)]
+        visitors_data = [random.randint(50, 200) for _ in hours]
+        ax.bar(hours, visitors_data, color='#1f77b4')
+        ax.set_ylabel("Посетителей", color='white')
+        ax.set_title(zone_name, color='white')
+        
+        canvas = FigureCanvasTkAgg(fig, master=chart_frame)
+        canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Кнопки действий
+        btn_frame = ctk.CTkFrame(detail_window)
+        btn_frame.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkButton(btn_frame, text="📞 Связаться с персоналом зоны", command=lambda: messagebox.showinfo("Уведомление", f"Запрос отправлен менеджеру зоны {zone_name}")).pack(side="left", expand=True, padx=5)
+        ctk.CTkButton(btn_frame, text="📊 Полный отчёт", command=lambda: messagebox.showinfo("Отчёт", f"Отчёт по зоне {zone_name} формируется...")).pack(side="left", expand=True, padx=5)
+        ctk.CTkButton(btn_frame, text="❌ Закрыть", command=detail_window.destroy, fg_color="gray").pack(side="left", expand=True, padx=5)
 
 
 # ==============================================================================
