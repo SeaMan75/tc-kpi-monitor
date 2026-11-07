@@ -18,10 +18,10 @@ class DashboardTab(ctk.CTkFrame):
         self._build()
         
     def _build(self):
-        # 1. Заголовок KPI (используем pack для самого верхнего уровня)
+        # 1. Заголовок KPI
         ctk.CTkLabel(self, text="📊 Ключевые показатели (KPI)", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(10, 5), anchor="w", padx=10)
         
-        # 2. Фрейм для карточек KPI (ЗДЕСЬ будем использовать ТОЛЬКО grid)
+        # 2. Фрейм для карточек KPI
         kpi_frame = ctk.CTkFrame(self)
         kpi_frame.pack(fill="x", padx=10, pady=5)
         
@@ -33,30 +33,15 @@ class DashboardTab(ctk.CTkFrame):
         ]
         
         self.kpi_cards = {}
-        for i, (name, load, color) in enumerate(zones):
-            row, col = divmod(i, 3)
-            heatmap.grid_columnconfigure(col, weight=1)
-            
-            card = ctk.CTkFrame(heatmap, fg_color=color if color != "yellow" else "#b8860b")
-            card.grid(row=row+1, column=col, padx=5, pady=5, sticky="nsew")
-            
-            # Сохраняем ссылки на лейблы, чтобы к ним тоже можно было привязать клик
-            name_lbl = ctk.CTkLabel(card, text=name, font=ctk.CTkFont(weight="bold"))
-            name_lbl.pack(pady=10)
-            load_lbl = ctk.CTkLabel(card, text=f"Загрузка: {load}%", font=ctk.CTkFont(size=16))
-            load_lbl.pack(pady=5)
-            
-            self.zone_cards[name] = {"card": card, "label": load_lbl}
-            
-            # === ДОБАВЛЯЕМ ИНТЕРАКТИВНОСТЬ ===
-            status_text = "Критическая загрузка!" if color == "red" else ("Высокая загрузка" if color == "yellow" else "Работает штатно")
-            
-            # Привязываем клик ко всем элементам карточки (фрейм + текст)
-            for widget in (card, name_lbl, load_lbl):
-                widget.configure(cursor="hand2") # Курсор-рука при наведении
-                widget.bind("<Button-1>", lambda e, n=name, l=load, c=color, s=status_text: self._on_zone_click(e, n, l, c, s))
-            # =================================
-
+        for i, (title, value, delta, color) in enumerate(kpis):
+            kpi_frame.grid_columnconfigure(i, weight=1)
+            card = ctk.CTkFrame(kpi_frame, fg_color="gray20")
+            card.grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
+            ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=11), text_color="gray").pack(pady=5)
+            ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=20, weight="bold")).pack()
+            ctk.CTkLabel(card, text=delta, font=ctk.CTkFont(size=12), text_color=color).pack(pady=5)
+            self.kpi_cards[title] = card
+        
         # 3. Основная область (Тепловая карта + График)
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
@@ -64,10 +49,9 @@ class DashboardTab(ctk.CTkFrame):
         # Левая часть: тепловая карта зон ТЦ
         heatmap = ctk.CTkFrame(main_frame)
         heatmap.pack(side="left", fill="both", expand=True, padx=5)
-        
-        # ВАЖНО: Заголовок тепловой карты тоже добавляем через grid, чтобы не смешивать с карточками ниже
         ctk.CTkLabel(heatmap, text="🗺 Тепловая карта зон ТЦ", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, columnspan=3, pady=10)
         
+        # ВАЖНО: список zones должен быть ДО цикла!
         zones = [
             ("Фудкорт", 85, "red"), ("Парковка P1", 45, "green"),
             ("Парковка P2", 72, "yellow"), ("Кинозал", 30, "green"),
@@ -82,10 +66,18 @@ class DashboardTab(ctk.CTkFrame):
             card = ctk.CTkFrame(heatmap, fg_color=color if color != "yellow" else "#b8860b")
             card.grid(row=row+1, column=col, padx=5, pady=5, sticky="nsew")
             
-            ctk.CTkLabel(card, text=name, font=ctk.CTkFont(weight="bold")).pack(pady=10)
-            lbl = ctk.CTkLabel(card, text=f"Загрузка: {load}%", font=ctk.CTkFont(size=16))
-            lbl.pack(pady=5)
-            self.zone_cards[name] = {"card": card, "label": lbl}
+            name_lbl = ctk.CTkLabel(card, text=name, font=ctk.CTkFont(weight="bold"))
+            name_lbl.pack(pady=10)
+            load_lbl = ctk.CTkLabel(card, text=f"Загрузка: {load}%", font=ctk.CTkFont(size=16))
+            load_lbl.pack(pady=5)
+            
+            self.zone_cards[name] = {"card": card, "label": load_lbl}
+            
+            # Добавляем интерактивность
+            status_text = "Критическая загрузка!" if color == "red" else ("Высокая загрузка" if color == "yellow" else "Работает штатно")
+            for widget in (card, name_lbl, load_lbl):
+                widget.configure(cursor="hand2")
+                widget.bind("<Button-1>", lambda e, n=name, l=load, c=color, s=status_text: self._on_zone_click(e, n, l, c, s))
         
         # Правая часть: мини-график посещаемости
         chart = ctk.CTkFrame(main_frame)
@@ -106,6 +98,8 @@ class DashboardTab(ctk.CTkFrame):
         
         canvas = FigureCanvasTkAgg(fig, master=chart)
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+
+
 
     def _on_zone_click(self, event, name, load, color, status_text):
         """Обработка клика по карточке на дашборде"""
