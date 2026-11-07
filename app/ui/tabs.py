@@ -9,17 +9,22 @@ import random
 # ==============================================================================
 # ВКЛАДКА 1: DASHBOARD (Главный экран)
 # ==============================================================================
+# ==============================================================================
+# ВКЛАДКА 1: DASHBOARD (Главный экран)
+# ==============================================================================
 class DashboardTab(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent)
         self._build()
         
     def _build(self):
-        # KPI-карточки сверху
-        kpi_frame = ctk.CTkFrame(self)
-        kpi_frame.pack(fill="x", padx=10, pady=10)
+        # 1. Заголовок KPI (используем pack для самого верхнего уровня)
+        ctk.CTkLabel(self, text="📊 Ключевые показатели (KPI)", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(10, 5), anchor="w", padx=10)
         
-        self.kpi_cards = {}
+        # 2. Фрейм для карточек KPI (ЗДЕСЬ будем использовать ТОЛЬКО grid)
+        kpi_frame = ctk.CTkFrame(self)
+        kpi_frame.pack(fill="x", padx=10, pady=5)
+        
         kpis = [
             ("Посетителей сегодня", "12,847", "+12%", "green"),
             ("Средний чек", "2,340 ₽", "+5%", "green"),
@@ -27,24 +32,29 @@ class DashboardTab(ctk.CTkFrame):
             ("Выручка за час", "847,200 ₽", "+8%", "green"),
         ]
         
+        self.kpi_cards = {}
         for i, (title, value, delta, color) in enumerate(kpis):
-            card = ctk.CTkFrame(kpi_frame, fg_color="gray20")
-            card.grid(row=0, column=i, padx=5, pady=5, sticky="nsew")
-            kpi_frame.grid_columnconfigure(i, weight=1)
+            kpi_frame.grid_columnconfigure(i, weight=1) # Настраиваем grid
             
+            card = ctk.CTkFrame(kpi_frame, fg_color="gray20")
+            card.grid(row=0, column=i, padx=5, pady=5, sticky="nsew") # Теперь grid работает чисто
+            
+            # Внутри карточки можно использовать pack, это другой фрейм!
             ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=11), text_color="gray").pack(pady=5)
             ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=20, weight="bold")).pack()
             ctk.CTkLabel(card, text=delta, font=ctk.CTkFont(size=12), text_color=color).pack(pady=5)
             self.kpi_cards[title] = card
         
-        # Тепловая карта + мини-график
+        # 3. Основная область (Тепловая карта + График)
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
         # Левая часть: тепловая карта зон ТЦ
         heatmap = ctk.CTkFrame(main_frame)
         heatmap.pack(side="left", fill="both", expand=True, padx=5)
-        ctk.CTkLabel(heatmap, text="🗺 Тепловая карта зон ТЦ", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=10)
+        
+        # ВАЖНО: Заголовок тепловой карты тоже добавляем через grid, чтобы не смешивать с карточками ниже
+        ctk.CTkLabel(heatmap, text="🗺 Тепловая карта зон ТЦ", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, columnspan=3, pady=10)
         
         zones = [
             ("Фудкорт", 85, "red"), ("Парковка P1", 45, "green"),
@@ -55,9 +65,10 @@ class DashboardTab(ctk.CTkFrame):
         self.zone_cards = {}
         for i, (name, load, color) in enumerate(zones):
             row, col = divmod(i, 3)
+            heatmap.grid_columnconfigure(col, weight=1)
+            
             card = ctk.CTkFrame(heatmap, fg_color=color if color != "yellow" else "#b8860b")
             card.grid(row=row+1, column=col, padx=5, pady=5, sticky="nsew")
-            heatmap.grid_columnconfigure(col, weight=1)
             
             ctk.CTkLabel(card, text=name, font=ctk.CTkFont(weight="bold")).pack(pady=10)
             lbl = ctk.CTkLabel(card, text=f"Загрузка: {load}%", font=ctk.CTkFont(size=16))
@@ -83,7 +94,7 @@ class DashboardTab(ctk.CTkFrame):
         
         canvas = FigureCanvasTkAgg(fig, master=chart)
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
-
+        
 # ==============================================================================
 # ВКЛАДКА 2: АНАЛИТИКА
 # ==============================================================================
