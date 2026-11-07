@@ -131,7 +131,8 @@ def run_console_mode():
 # ==============================================================================
 def run_gui_mode():
     print("🚀 Запуск графического интерфейса...")
-    from ui.auth import LoginWindow
+    import customtkinter as ctk
+    from ui.auth import LoginDialog
     from ui.main_window import KPIMonitorGUI
     
     config = ConfigManager("config/settings.json")
@@ -144,6 +145,32 @@ def run_gui_mode():
         errors_threshold=config.get('alerting.errors_threshold', 5)
     )
     
+    # 1. Создаем ЕДИНСТВЕННЫЙ корневой объект приложения и скрываем его
+    root = ctk.CTk()
+    root.withdraw() # Скрываем, пока пользователь не войдет в систему
+    root.title("Система мониторинга KPI ТЦ")
+    root.geometry("1400x900")
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+
+    # 2. Функция, которая сработает после успешного входа
+    def on_login_success(user_info):
+        # 3. Строим главный интерфейс на том же самом root
+        gui = KPIMonitorGUI(
+            root=root, # Передаем существующий root, а не создаем новый!
+            docker_manager=docker, 
+            alert_manager=alert_manager, 
+            config=config,
+            user_info=user_info
+        )
+        root.deiconify() # Делаем главное окно видимым
+
+    # 4. Показываем диалог входа. Он заблокирует выполнение до ввода данных.
+    login_dialog = LoginDialog(root, on_login_success)
+    
+    # 5. Запускаем главный цикл. Он будет работать, пока не закроют главное окно.
+    root.mainloop()
+
     def on_login_success(user_info, login_window):
         # Сначала создаём главное окно
         gui = KPIMonitorGUI(
@@ -161,7 +188,7 @@ def run_gui_mode():
     
     login = LoginWindow(on_login_success)
     login.run()
-    
+
     # Сначала показываем окно авторизации
     def on_login_success(user_info):
         gui = KPIMonitorGUI(

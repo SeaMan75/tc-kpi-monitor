@@ -3,21 +3,17 @@ from tkinter import messagebox
 from .tabs import DashboardTab, AnalyticsTab, ZonesTab, AlertsTab, InfrastructureTab, UsersTab, SettingsTab
 
 class KPIMonitorGUI:
-    def __init__(self, docker_manager, alert_manager, config, user_info, login_window=None):
+    def __init__(self, root, docker_manager, alert_manager, config, user_info):
+        self.root = root  # <--- ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ ROOT
         self.docker_manager = docker_manager
         self.alert_manager = alert_manager
         self.config = config
         self.user_info = user_info
-        self.login_window = login_window  # сохраняем ссылку
         self.running = False
         
-        # ВАЖНО: сначала создаём главное окно, потом уничтожаем логин
-        self.root = ctk.CTk()
+        # Убираем строку self.root = ctk.CTk(), она теперь есть в main.py
         self.root.title(f"Система мониторинга KPI ТЦ — {user_info['name']} ({user_info['role']})")
-        self.root.geometry("1400x900")
-        
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
+        # self.root.geometry("1400x900") # <-- ЭТО ТОЖЕ УБЕРИ, оно уже задано в main.py
         
         self._build_header()
         self._build_tabs()
