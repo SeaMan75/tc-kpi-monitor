@@ -1,15 +1,17 @@
 import customtkinter as ctk
 from tkinter import messagebox
-from tabs import DashboardTab, AnalyticsTab, ZonesTab, AlertsTab, InfrastructureTab, UsersTab, SettingsTab
+from .tabs import DashboardTab, AnalyticsTab, ZonesTab, AlertsTab, InfrastructureTab, UsersTab, SettingsTab
 
 class KPIMonitorGUI:
-    def __init__(self, docker_manager, alert_manager, config, user_info):
+    def __init__(self, docker_manager, alert_manager, config, user_info, login_window=None):
         self.docker_manager = docker_manager
         self.alert_manager = alert_manager
         self.config = config
         self.user_info = user_info
+        self.login_window = login_window  # сохраняем ссылку
         self.running = False
         
+        # ВАЖНО: сначала создаём главное окно, потом уничтожаем логин
         self.root = ctk.CTk()
         self.root.title(f"Система мониторинга KPI ТЦ — {user_info['name']} ({user_info['role']})")
         self.root.geometry("1400x900")

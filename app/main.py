@@ -144,6 +144,24 @@ def run_gui_mode():
         errors_threshold=config.get('alerting.errors_threshold', 5)
     )
     
+    def on_login_success(user_info, login_window):
+        # Сначала создаём главное окно
+        gui = KPIMonitorGUI(
+            docker_manager=docker, 
+            alert_manager=alert_manager, 
+            config=config,
+            user_info=user_info,
+            login_window=login_window  # передаём ссылку
+        )
+        # Теперь безопасно уничтожаем окно авторизации
+        try:
+            login_window.destroy()
+        except Exception:
+            pass  # Игнорируем ошибки уничтожения
+    
+    login = LoginWindow(on_login_success)
+    login.run()
+    
     # Сначала показываем окно авторизации
     def on_login_success(user_info):
         gui = KPIMonitorGUI(
