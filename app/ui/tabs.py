@@ -176,7 +176,9 @@ class ZonesTab(ctk.CTkFrame):
         ctk.CTkLabel(self, text="📍 Мониторинг зон торгового центра", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=10)
         
         columns = ("Зона", "Посетителей/час", "Загрузка %", "Статус", "Последнее событие")
-        tree = ttk.Treeview(self, columns=columns, show="headings", height=15)
+        
+        # ВАЖНО: self.tree, а не просто tree!
+        self.tree = ttk.Treeview(self, columns=columns, show="headings", height=15)
         
         style = ttk.Style()
         style.theme_use("clam")
@@ -184,8 +186,8 @@ class ZonesTab(ctk.CTkFrame):
         style.configure("Treeview.Heading", background="#1f538d", foreground="white")
         
         for col in columns:
-            tree.heading(col, text=col)
-            tree.column(col, width=180, anchor="center")
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=180, anchor="center")
         
         zones_data = [
             ("Фудкорт (2 этаж)", "1,247", "85%", "⚠️ Высокая", "Очередь на кассе #3"),
@@ -199,10 +201,10 @@ class ZonesTab(ctk.CTkFrame):
         ]
         
         for row in zones_data:
-            tree.insert("", "end", values=row)
+            self.tree.insert("", "end", values=row)
         
-        tree.pack(fill="both", expand=True, padx=10, pady=10)
-        tree.bind("<Double-1>", lambda e: self._show_zone_details())
+        self.tree.pack(fill="both", expand=True, padx=10, pady=10)
+        self.tree.bind("<Double-1>", lambda e: self._show_zone_details())
         ctk.CTkButton(self, text="📋 Показать детали выбранной зоны", command=self._show_zone_details).pack(pady=10)
 
     def _show_zone_details(self):
@@ -228,14 +230,7 @@ class ZonesTab(ctk.CTkFrame):
         info_frame = ctk.CTkFrame(detail_window)
         info_frame.pack(fill="x", padx=20, pady=10)
         
-        info_text = f"""
-            Посетителей за последний час: {visitors}
-            Текущая загрузка: {load}
-            Статус: {status}
-            Последнее событие: {last_event}
-
-            Рекомендации:
-            """
+        info_text = f"Посетителей за последний час: {visitors}\nТекущая загрузка: {load}\nСтатус: {status}\nПоследнее событие: {last_event}\n\nРекомендации:\n"
         if "Критично" in str(status):
             info_text += "⚠️ Немедленно направить дополнительный персонал!\n"
         elif "Высокая" in str(status):
@@ -243,8 +238,10 @@ class ZonesTab(ctk.CTkFrame):
         else:
             info_text += "✅ Работает в штатном режиме\n"
         
-        ctk.CTkTextbox(info_frame, height=150).insert("1.0", info_text)
-        ctk.CTkTextbox(info_frame, height=150).pack(fill="x", padx=10, pady=10)
+        # ИСПРАВЛЕНО: одно текстовое поле, которое и заполняется, и показывается
+        txt_box = ctk.CTkTextbox(info_frame, height=150)
+        txt_box.insert("1.0", info_text)
+        txt_box.pack(fill="x", padx=10, pady=10)
         
         # График посещаемости по часам
         chart_frame = ctk.CTkFrame(detail_window)
@@ -275,7 +272,6 @@ class ZonesTab(ctk.CTkFrame):
         ctk.CTkButton(btn_frame, text="📞 Связаться с персоналом зоны", command=lambda: messagebox.showinfo("Уведомление", f"Запрос отправлен менеджеру зоны {zone_name}")).pack(side="left", expand=True, padx=5)
         ctk.CTkButton(btn_frame, text="📊 Полный отчёт", command=lambda: messagebox.showinfo("Отчёт", f"Отчёт по зоне {zone_name} формируется...")).pack(side="left", expand=True, padx=5)
         ctk.CTkButton(btn_frame, text="❌ Закрыть", command=detail_window.destroy, fg_color="gray").pack(side="left", expand=True, padx=5)
-
 
 # ==============================================================================
 # ВКЛАДКА 4: АЛЕРТЫ

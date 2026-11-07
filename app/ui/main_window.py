@@ -35,9 +35,16 @@ class KPIMonitorGUI:
         
         # Переключатель темы
         self.theme_var = ctk.StringVar(value="dark")
-        theme_switch = ctk.CTkSwitch(header, text="🌙/☀️ Тема", variable=self.theme_var, command=self._toggle_theme)
-        theme_switch.pack(side="right", padx=20)
-        
+        self.theme_switch = ctk.CTkSwitch(
+            header, 
+            text="🌙/☀️ Тема", 
+            variable=self.theme_var,
+            onvalue="light",   # <-- ВАЖНО: явно указываем строки
+            offvalue="dark",   # <-- ВАЖНО: явно указываем строки
+            command=self._toggle_theme
+        )
+        self.theme_switch.pack(side="right", padx=20)
+
         # Кнопка выхода
         ctk.CTkButton(header, text="🚪 Выйти", fg_color="red", hover_color="darkred", width=100, command=self._logout).pack(side="right", padx=10)
     
@@ -68,11 +75,14 @@ class KPIMonitorGUI:
             SettingsTab(self.tabview.tab("⚙️ Настройки")).pack(fill="both", expand=True)
     
     def _toggle_theme(self):
-        current = ctk.get_appearance_mode()
-        new_theme = "light" if current == "dark" else "dark"
+        # Берем значение напрямую из переключателя
+        new_theme = self.theme_var.get()
+        
+        # Применяем тему ко всему приложению
         ctk.set_appearance_mode(new_theme)
-        self.theme_var.set(new_theme)
-        self.root.update_idletasks()  # Форсируем обновление
+        
+        # Принудительно обновляем главное окно и все его элементы
+        self.root.update()
         
     def _logout(self):
         if messagebox.askyesno("Выход", "Завершить сеанс?"):
