@@ -235,6 +235,7 @@ DIAGRAMS_META = [
 # УТИЛИТЫ
 # ============================================================================
 def measure(ax, fig, label, fs):
+    
     t = ax.text(0, 0, label, fontsize=fs, ha="center", va="center")
     try:
         bb = t.get_window_extent(renderer=fig.canvas.get_renderer())
@@ -243,6 +244,16 @@ def measure(ax, fig, label, fs):
         w, h = len(label) * 0.62 * fs / 72.0, 1.25 * fs / 72.0
     t.remove()
     return w, h
+
+def edge_rect(cx, cy, hw, hh, tx, ty):
+    """Вычисляет точку пересечения линии с границей прямоугольника."""
+    dx, dy = tx - cx, ty - cy
+    if dx == 0 and dy == 0:
+        return cx + hw, cy
+    sx = hw / abs(dx) if dx else float("inf")
+    sy = hh / abs(dy) if dy else float("inf")
+    s = min(sx, sy)
+    return cx + dx * s, cy + dy * s
 
 def _esc(s):
     return html.escape(str(s), quote=True)
